@@ -1,3 +1,5 @@
+import pytest
+
 from policy_management.policy_store import PolicyStore
 
 
@@ -40,3 +42,33 @@ def test_library_creation_and_policy_assignment():
 
     store.delete_library("lib1")
     assert store.list_libraries() == []
+
+
+def test_duplicate_library_and_policy_addition_errors():
+    store = PolicyStore()
+    store.create_library("lib1")
+    with pytest.raises(ValueError):
+        store.create_library("lib1")
+
+    store.add_policy("1", "Policy One", "content")
+    store.create_library("lib2")
+    store.add_policy_to_library("1", "lib2")
+    with pytest.raises(ValueError):
+        store.add_policy_to_library("1", "lib2")
+
+
+def test_policy_deletion_cleans_libraries():
+    store = PolicyStore()
+    store.add_policy("1", "Policy One", "content")
+    store.add_policy("2", "Policy Two", "content")
+    store.create_library("lib1")
+    store.create_library("lib2")
+
+    store.add_policy_to_library("1", "lib1")
+    store.add_policy_to_library("1", "lib2")
+    store.add_policy_to_library("2", "lib2")
+
+    store.delete_policy("1")
+
+    assert [p.policy_id for p in store.list_policies_in_library("lib1")] == []
+    assert [p.policy_id for p in store.list_policies_in_library("lib2")] == ["2"]

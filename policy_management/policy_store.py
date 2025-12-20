@@ -30,6 +30,9 @@ class PolicyLibrary:
             raise KeyError(f"Policy {policy_id} not found in library {self.library_id}")
         del self.policies[policy_id]
 
+    def has_policy(self, policy_id: str) -> bool:
+        return policy_id in self.policies
+
     def list_policies(self) -> list[Policy]:
         return list(self.policies.values())
 
@@ -54,6 +57,9 @@ class PolicyStore:
     def delete_policy(self, policy_id: str) -> None:
         if policy_id not in self.policies:
             raise KeyError(f"Policy {policy_id} not found")
+        for library in self.libraries.values():
+            if library.has_policy(policy_id):
+                library.remove_policy(policy_id)
         del self.policies[policy_id]
 
     def view_policy(self, policy_id: str) -> Policy:
