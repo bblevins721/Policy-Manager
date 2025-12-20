@@ -26,6 +26,10 @@ class Policy:
             }
         ]
 
+    def latest_version(self) -> dict:
+        """Return the most recent version record."""
+        return self.versions[-1]
+
     def update(
         self,
         new_content: str,
@@ -91,6 +95,39 @@ class PolicyStore:
             updated_by=updated_by,
             updated_at=updated_at,
         )
+
+    def scan_policies(
+        self,
+        *,
+        staleness_days: int = 180,
+        now: datetime | None = None,
+    ) -> list[dict]:
+        """Generate recommendations for policies based on metadata and recency."""
+        current_time = now or datetime.now(tz=timezone.utc)
+        recommendations: list[dict] = []
+        for policy in self.policies.values():
+            latest_version = policy.latest_version()
+            last_updated = datetime.fromisoformat(latest_version["timestamp"])
+            recs: list[str] = []
+
+            if (current_time - last_updated).days >= staleness_days:
+                recs.append(
+                    f"Review policy; last updated over {staleness_days} days ago."
+                )
+
+            if latest_version.get("user") is None:
+                recs.append("Capture updated_by metadata on next revision.")
+
+            recommendations.append(
+                {
+                    "policy_id": policy.policy_id,
+                    "title": policy.title,
+                    "last_updated": latest_version["timestamp"],
+                    "recommendations": recs,
+                }
+            )
+
+        return recommendations
 
     def delete_policy(self, policy_id: str) -> None:
         if policy_id not in self.policies:

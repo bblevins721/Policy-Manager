@@ -46,3 +46,56 @@ def test_add_edit_delete_policy():
 
     store.delete_policy("1")
     assert store.list_policies() == []
+
+
+def test_scan_policies_recommendations():
+    store = PolicyStore()
+    stale_timestamp = datetime(2024, 7, 1, tzinfo=timezone.utc)
+    recent_timestamp = datetime(2024, 12, 1, tzinfo=timezone.utc)
+
+    store.add_policy(
+        "stale",
+        "Old Policy",
+        "old content",
+        created_by=None,
+        created_at=stale_timestamp,
+    )
+    # Missing updated_by metadata and old timestamp should trigger recommendations.
+    store.edit_policy(
+        "stale",
+        "old content updated",
+        updated_by=None,
+        updated_at=stale_timestamp,
+    )
+
+    store.add_policy(
+        "fresh",
+        "New Policy",
+        "new content",
+        created_by="owner",
+        created_at=recent_timestamp,
+    )
+
+    report = store.scan_policies(
+        staleness_days=120,
+        now=datetime(2024, 12, 31, tzinfo=timezone.utc),
+    )
+
+    stale_policy_report = next(item for item in report if item["policy_id"] == "stale")
+    assert stale_policy_report == {
+        "policy_id": "stale",
+        "title": "Old Policy",
+        "last_updated": stale_timestamp.isoformat(),
+        "recommendations": [
+            "Review policy; last updated over 120 days ago.",
+            "Capture updated_by metadata on next revision.",
+        ],
+    }
+
+    fresh_policy_report = next(item for item in report if item["policy_id"] == "fresh")
+    assert fresh_policy_report == {
+        "policy_id": "fresh",
+        "title": "New Policy",
+        "last_updated": recent_timestamp.isoformat(),
+        "recommendations": [],
+    }
